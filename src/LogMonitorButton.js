@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { PropTypes } from 'react';
 import brighten from './brighten';
 import shouldPureComponentUpdate from 'react-pure-render/function';
 
@@ -22,6 +22,11 @@ const styles = {
 
 export default class LogMonitorButton extends React.Component {
   shouldComponentUpdate = shouldPureComponentUpdate;
+
+  static propTypes = {
+    isFileButton: PropTypes.bool,
+    onClick: PropTypes.func,
+  };
 
   constructor(props) {
     super(props);
@@ -54,12 +59,12 @@ export default class LogMonitorButton extends React.Component {
     this.setState({ active: false });
   }
 
-  onClick() {
+  onClick(event) {
     if (!this.props.enabled) {
       return;
     }
     if (this.props.onClick) {
-      this.props.onClick();
+      this.props.onClick(event);
     }
   }
 
@@ -82,15 +87,51 @@ export default class LogMonitorButton extends React.Component {
         backgroundColor: 'transparent'
       };
     }
+
+    var hiddenInputStyle = {
+      height:   '0.1px',
+      opacity:  '0',
+      overflow: 'hidden',
+      position: 'absolute',
+      width:    '0.1px',
+      zIndex:    -1
+    };
+
+    var labelStyle = {
+      cursor:   'pointer',
+      display:  'block'
+    };
+
     return (
-      <a onMouseEnter={this.handleMouseEnter}
-          onMouseLeave={this.handleMouseLeave}
-          onMouseDown={this.handleMouseDown}
-          onMouseUp={this.handleMouseUp}
-          onClick={this.onClick}
-          style={style}>
-        {this.props.children}
-      </a>
+      <div>
+        { !this.props.isFileButton?
+          <a onMouseEnter={this.handleMouseEnter}
+              onMouseLeave={this.handleMouseLeave}
+              onMouseDown={this.handleMouseDown}
+              onMouseUp={this.handleMouseUp}
+              onClick={this.onClick}
+              style={style}>
+            {this.props.children}
+          </a>
+          :
+          <div onMouseEnter={this.handleMouseEnter}
+              onMouseLeave={this.handleMouseLeave}
+              onMouseDown={this.handleMouseDown}
+              onMouseUp={this.handleMouseUp}
+              style={style}>
+            <input
+              id='descriptor-load'
+              style={hiddenInputStyle}
+              type='file'/>
+            <label
+              htmlFor='descriptor-load'
+              onClick={this.onClick}
+              style={labelStyle}>
+              {this.props.children}
+            </label>
+          </div>
+        }
+      </div>
     );
   }
 }

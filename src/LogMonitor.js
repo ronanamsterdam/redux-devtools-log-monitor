@@ -7,7 +7,7 @@ import { ActionCreators } from 'redux-devtools';
 import { updateScrollTop } from './actions';
 import reducer from './reducers';
 
-const { reset, rollback, commit, sweep, toggleAction } = ActionCreators;
+const { reset, rollback, commit, sweep, toggleAction, importState } = ActionCreators;
 
 const styles = {
   container: {
@@ -39,10 +39,16 @@ const styles = {
   }
 };
 
+var valueIsDefined = function(value) {
+  return value !== undefined && value !== false && value !== null;
+}
+
 export default class LogMonitor extends Component {
   static update = reducer;
 
   static propTypes = {
+    persistentStateLocalStoreKey: PropTypes.string.isRequired,
+    loadValidationCb: PropTypes.func,
     dispatch: PropTypes.func,
     computedStates: PropTypes.array,
     actionsById: PropTypes.object,
@@ -79,6 +85,8 @@ export default class LogMonitor extends Component {
     this.handleRollback = this.handleRollback.bind(this);
     this.handleSweep = this.handleSweep.bind(this);
     this.handleCommit = this.handleCommit.bind(this);
+    this.handleSave = this.handleSave.bind(this);
+    this.handleLoad = this.handleLoad.bind(this);
   }
 
   scroll() {
@@ -161,6 +169,66 @@ export default class LogMonitor extends Component {
     this.props.dispatch(reset());
   }
 
+  handleSave(event) {
+    let storeState = localStorage.getItem(this.props.persistentStateLocalStoreKey);
+
+    if(storeState) {
+      let text = storeState;
+      let name = 'savedState.json';
+      let type = 'application/json';
+
+      var a = event.target;
+      var file = new Blob([text], {type: type});
+      a.href = URL.createObjectURL(file);
+      a.download = name;
+    }
+  }
+
+  handleLoad(event) {
+    var fileInputChangeHandler = function fileInputChangeListener(inputChangeEvent) {
+        if(inputChangeEvent.target.files[0]) {
+          let file = inputChangeEvent.target.files[0];
+          let reader = new FileReader();
+
+          reader.onloadend = (e) => {
+            try {
+              let fileLoadResult = e.target.result;
+
+              //because that's how you clear the FileList :/
+              inputChangeEvent.target.value = '';
+
+              let newMonitorState = JSON.parse(fileLoadResult);
+
+              if( this.props.loadValidationCb && !this.props.loadValidationCb(newMonitorState)) {
+                console.error("{LogMonitor} 😤 Loaded stuff did not passed validation. I'm ain't loading that!" + (e.massage || e));
+              } else {
+                var action = importState();
+
+                action.nextLiftedState = newMonitorState;
+
+                this.props.dispatch(action);
+              }
+            } catch(e) {
+              console.error("{LogMonitor} 😤 Well something went wrong when I tried to parse that bro! Make sure that's a valid JSON file! " + (e.massage || e));
+            }
+          }
+
+          reader.onerror = () => {
+            console.error('{LogMonitor} 😤 Well something when I tried to load that file bro!');
+          }
+
+          reader.readAsText(file);
+        }
+
+        fileInput.removeEventListener('change', fileInputChangeHandler);
+      }.bind(this);
+      let fileInput = document.getElementById(event.target.htmlFor);
+
+      if(fileInput) {
+        fileInput.addEventListener('change', fileInputChangeHandler);
+      }
+  }
+
   getTheme() {
     let { theme } = this.props;
     if (typeof theme !== 'string') {
@@ -230,6 +298,19 @@ export default class LogMonitor extends Component {
             onClick={this.handleCommit}
             enabled={computedStates.length > 1}>
             Commit
+          </LogMonitorButton>
+          <LogMonitorButton
+            theme={theme}
+            onClick={this.handleSave}
+            enabled>
+            Save
+          </LogMonitorButton>
+          <LogMonitorButton
+            theme={theme}
+            onClick={this.handleLoad}
+            isFileButton={true}
+            enabled>
+            Load
           </LogMonitorButton>
         </div>
         <div style={styles.elements} ref='container'>
